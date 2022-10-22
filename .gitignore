@@ -1,1 +1,3 @@
 database.sqlite
+push_to_prod.sh
+donwload_db.sh

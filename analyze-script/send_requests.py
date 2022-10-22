@@ -1,6 +1,5 @@
 import requests
 import concurrent.futures
-import time
 
 def get_status():
     return requests.post(
