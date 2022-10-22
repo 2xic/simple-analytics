@@ -4,75 +4,61 @@ mod schema;
 
 extern crate diesel;
 use diesel::sqlite::SqliteConnection;
-//use schema::analytics::dsl::*;
-//use models::*;
 use diesel::prelude::*;
-//use models;
-//use diesel_demo::*;
-use actix_web::dev::Service;
-use actix_web::{get,web, App, HttpRequest, HttpResponse, HttpServer, Responder, Result, web::{Data}};
+use actix_web::{web, App, HttpRequest, HttpResponse, HttpServer, Result, web::{Data}};
 use actix_web::http::{StatusCode};
-use std::{cell::RefCell, sync::Mutex};
-use models::{Analytic};
-
+use bytes::Bytes;
 use diesel::r2d2::{ConnectionManager, Pool};
 
-pub fn create_analytic(conn: &mut SqliteConnection, user_agent: &str) -> usize {
+pub fn create_analytic(conn: &mut SqliteConnection, value_user_agent: &str, value_ip: Option<&str>, value_metadata: &str) -> usize {
     use crate::schema::analytics;
-    use schema::analytics::dsl::*;
 
-    let new_analytic = models::NewAnalytic { user_agent: "test" };
+    let entry = models::NewAnalytic { user_agent: value_user_agent, ip: value_ip.unwrap(), metadata: value_metadata };
 
     diesel::insert_into(analytics::table)
-        .values(&new_analytic)
-//        .load(conn)
+        .values(&entry)
         .execute(conn)
         .expect("Error saving new post")
 }
 
-
-struct app {
+struct AppData {
     pool: Pool<ConnectionManager<SqliteConnection>>
 }
 
 
-async fn global(data: web::Data<app>, req: HttpRequest) -> Result<HttpResponse> {
-    let userAgent = req.headers().get("User-Agent").unwrap().to_str()
+async fn global(data: web::Data<AppData>, req: HttpRequest, body: Bytes) -> Result<HttpResponse> {
+    let user_agent = req.headers().get("User-Agent").unwrap().to_str()
     .unwrap();
-    /*
-    let app_name = &data.app_name; // <- get app_name
-    println!("app-name : {}", app_name);*/
-    
-    let app_name = &data.pool;
-    print!("{:?}", app_name);
+    let app_name = &mut data.pool.get().unwrap();
 
-    println!("user-agent : {}", userAgent);
+    println!("user-agent : {}", user_agent);
+
+    let metadata = body.escape_ascii().to_string();
     
     if let Some(val) = req.peer_addr() {
         println!("ip {:?}", val.ip());
-    };
+        let ip = &Some(val.ip().to_string()).unwrap();
+        create_analytic(app_name, user_agent, Some(ip), &metadata);
+    } else{
+        create_analytic(app_name, user_agent, None, &metadata);
+    }
 
     Ok(HttpResponse::build(StatusCode::OK)
         .content_type("text/html; charset=utf-8")
         .body("ok"))
 }
 
-
-
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     let port = 8080;
-    let connection = /*mut*/ logger::establish_connection();
+    let connection = logger::establish_connection();
 
     println!("Running on http://localhost:{}/", port);
 
-    
-    //let m = Mutex::new(connection);
-    
     HttpServer::new(move || {
-        App::new().data(app {
+        App::new().app_data(Data::new(AppData {
             pool: connection.clone()
-        }).default_service(
+        })).default_service(
         web::route().to(global)
     )
     })

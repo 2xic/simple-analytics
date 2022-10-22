@@ -9,7 +9,8 @@ pub struct Analytic {
 
 #[derive(Insertable)]
 #[diesel(table_name = analytics)]
-pub struct NewAnalytic<'a> {
+pub struct NewAnalytic<'a, 'b, 'c> {
     pub user_agent: &'a str,
+    pub ip: &'b str,
+    pub metadata: &'c str,
 }
-
