@@ -20,10 +20,11 @@ async fn global(data: web::Data<AppData>, req: HttpRequest, body: Bytes) -> Resu
     .unwrap();
     let pool = &mut data.pool.get().unwrap();
     let metadata = body.escape_ascii().to_string();
-    
-    if let Some(val) = req.peer_addr() {
-        println!("Request from ip: {:?}", val.ip());
-        let ip = &Some(val.ip().to_string()).unwrap();
+    let ip_header = "X-Forwarded-For";
+        
+    if req.headers().contains_key(ip_header) {
+        let ip = req.headers().get(ip_header).unwrap().to_str().unwrap();
+        println!("Request from ip: {:?}", ip);
         logger::create_analytic(pool, user_agent, Some(ip), &metadata);
     } else{
         println!("Request from user-agent: {}", user_agent);

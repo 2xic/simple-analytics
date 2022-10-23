@@ -24,7 +24,7 @@ pub fn create_analytic(conn: &mut SqliteConnection, value_user_agent: &str, valu
     use crate::schema::analytics;
     use crate::models::NewAnalytic;
 
-    let entry = NewAnalytic { user_agent: value_user_agent, ip: value_ip.unwrap(), metadata: value_metadata };
+    let entry = NewAnalytic { user_agent: value_user_agent, ip: value_ip.unwrap_or(""), metadata: value_metadata };
 
     diesel::insert_into(analytics::table)
         .values(&entry)
